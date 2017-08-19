@@ -37,7 +37,7 @@ set(AVR_L_FUSE 0xff)
 # name your project
 ##########################################################################
 project(Arduino C)
-set(SOURCE_FILES main.c)
+set(SOURCE_FILES morse.c)
 
 ##################################################################################
 # status messages
