@@ -17,10 +17,10 @@ volatile uint8_t buffer[64];
 volatile uint8_t buffer_top;
 volatile uint8_t run;
 
-void uart_init(void)
+void usart_init(void)
 {
-    UBRR0H = UBRRH_VALUE;
-    UBRR0L = UBRRL_VALUE;
+    UBRR0H = UBRRH_VALUE; /* Set high bits of baud rate */
+    UBRR0L = UBRRL_VALUE; /* Set low bits of baud rate */
 
 #if USE_2X
     UCSR0A |= (1 << U2X0);
@@ -29,26 +29,35 @@ void uart_init(void)
 #endif
 
     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); /* 8-bit data */
-    UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << RXCIE0);   /* Enable RX and TX */
+    UCSR0B = (1 << RXEN0) | (1 << TXEN0);   /* Enable RX and TX */
+    UCSR0B |= (1 << RXCIE0) | (1 << TXCIE0); /* Enable RX and TX interrupts */
+    sei();  /* Enable global interrupts */
 }
 
 void init()
 {
-    DDRB |= (POUT << PB5);
+    DDRB |= (POUT << PB5); /* Set the 5th pin on port B to output */
 }
 
-void morse_letter(uint8_t letter)
+void morse_display(uint8_t letter)
 {
+    /* The length of this letter is in the last 3 bits, hence the bitwise and 0x07 */
     for(int i = 0; i < (letter & 0x07); ++i)
     {
-        PORTB |= (1 << PB5);
+        PORTB |= (1 << PB5); /* Turn on the LED */
+        /* If the 7-i bit is one, than it's a 'dash', if not, it's a 'dot' */
         _delay_ms((letter & (1 << (7 - i))) > 0 ? MORSE_DASH : MORSE_DOT);
-        PORTB &= !(1 << PB5);
-        _delay_ms(MORSE_SYMBOL);
+        PORTB &= ~(1 << PB5); /* Turn off the LED */
+        _delay_ms(MORSE_SYMBOL); /* Delay between a single symbol (dot or dash) */
     }
-    _delay_ms(MORSE_LETTER);
+    _delay_ms(MORSE_LETTER); /* Delay between letters */
 }
 
+/**
+ *
+ * @param letter - an uppercase latin letter or a digit
+ * @return a packed 8-bit integer containing the symbols and length of a letter (ex. 'S' = 0b00000 011)
+ */
 uint8_t morse_code(uint8_t letter)
 {
     switch(letter)
@@ -62,7 +71,7 @@ uint8_t morse_code(uint8_t letter)
         case '3':
             return 0x1D;
         case '4':
-            return 0xd;
+            return 0x0D;
         case '5':
             return 0x05;
         case '6':
@@ -126,36 +135,34 @@ uint8_t morse_code(uint8_t letter)
         case 'Z':
             return 0xC4;
         default:
-            return 0;
+            return 0x00;
     }
 }
 
 int main()
 {
     init();
-    uart_init();
-    sei();
+    usart_init();
 
     run = 0;
     buffer_top = 0;
 
     while(1)
     {
-        if(buffer_top == 0)
-            run = 0;
-        if(run)
+        if(run) /* When an LF or CR is received we start displaying the string from a buffer */
         {
-            for(int i = 0; i < buffer_top; ++i)
+            for(int i = 0; i < buffer_top; ++i) /* Loop through every letter in the buffer */
             {
                 if(buffer[i] == ' ')
                 {
-                    _delay_ms(MORSE_WORD);
+                    _delay_ms(MORSE_WORD); /* Pause between words */
                 }
                 else
                 {
-                    morse_letter(morse_code(buffer[i]));
+                    morse_display(morse_code(buffer[i])); /* Fetch the packed int and display it using 'morse_display' */
                 }
             }
+            run = 0; /* We have finished displaying the morse code*/
             buffer_top = 0;
         }
     }
@@ -164,22 +171,21 @@ int main()
 ISR(USART_RX_vect)
 {
     uint8_t val = UDR0;
-    //0x0A - LF, 0x0D - CR
-    if(val == '\x0a' || val == '\x0d')
+    if(val == '\x0a' || val == '\x0d') /* 0x0A - LF, 0x0D - CR */
     {
         run = 1;
     }
-    else if(!run && buffer_top < 32)
+    else if(!run && buffer_top < sizeof(buffer)) /* If we are running ignore the inputs */
     {
         if((val >= 'A' && val <= 'Z') || (val >= '0' && val <= '9'))
         {
             buffer[buffer_top] = val;
-            buffer_top++;
+            buffer_top++; /* Increase the top so we know how many chars to display  */
         }
         else if((val >= 'a') && (val <= 'z'))
         {
-            buffer[buffer_top] = val - 32;
-            buffer_top++;
+            buffer[buffer_top] = val - 32; /* Shift the lowercase letters by 32 to be the same as uppercase  */
+            buffer_top++; /* Increase the top so we know how many chars to display  */
         }
     }
 }

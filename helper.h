@@ -5,3 +5,4 @@
 
 #define PIN 0
 #define POUT 1
+#define NOP() __asm__ ("nop");
