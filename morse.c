@@ -30,7 +30,7 @@ void usart_init(void)
 
     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); /* 8-bit data */
     UCSR0B = (1 << RXEN0) | (1 << TXEN0);   /* Enable RX and TX */
-    UCSR0B |= (1 << RXCIE0) | (1 << TXCIE0); /* Enable RX and TX interrupts */
+    UCSR0B |= (1 << RXCIE0); /* Enable RX interrupts */
     sei();  /* Enable global interrupts */
 }
 
