@@ -36,8 +36,8 @@ set(AVR_L_FUSE 0xff)
 ##########################################################################
 # name your project
 ##########################################################################
-project(Arduino C)
-set(SOURCE_FILES timing.c)
+project(Arduino C ASM)
+set_property(SOURCE ws2812b_strip.S PROPERTY LANGUAGE ASM)
 
 ##################################################################################
 # status messages
@@ -150,6 +150,15 @@ add_avr_executable(
         eeprom
         eeprom.c
 )
+add_avr_executable(
+        pwm
+        pwm.c
+)
+add_avr_executable(
+        ws2812b
+        ws2812b_strip.S ws2812b.c
+)
+
 add_avr_utils()
 
 ##################################################################################
